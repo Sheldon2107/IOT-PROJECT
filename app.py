@@ -1,22 +1,19 @@
 from flask import Flask, jsonify, send_from_directory
-from flask_cors import CORS
-from db import get_last_3_days
+from db import fetch_last_days
+from pathlib import Path
 
-# Initialize Flask app
-app = Flask(__name__, static_folder='static')
-CORS(app)  # Enable CORS for JS frontend
+app = Flask(__name__, static_folder="static")
 
-# Serve index.html from static
-@app.route('/')
+# Serve index.html
+@app.route("/")
 def index():
-    return send_from_directory('static', 'index.html')
+    return send_from_directory("static", "index.html")
 
-# API endpoint to fetch last 3 days of ISS data
-@app.route('/api/last3days')
+# API endpoint to fetch last 3 days of ISS telemetry
+@app.route("/api/last3days")
 def last_3_days():
-    data = get_last_3_days()
+    data = fetch_last_days(days=3)
     return jsonify(data)
 
 if __name__ == "__main__":
-    # Run on 0.0.0.0 for deployment, port 5000
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host="0.0.0.0", port=5000)
