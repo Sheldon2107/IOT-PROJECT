@@ -4,65 +4,87 @@ from datetime import datetime
 DB_PATH = 'iss_data.db'
 
 def init_database():
-    """Initialize the database and tables."""
+    """Initialize the SQLite database with ISS telemetry table."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS telemetry (
+        CREATE TABLE IF NOT EXISTS iss_telemetry (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp INTEGER,
-            ts_utc TEXT,
-            latitude REAL,
-            longitude REAL,
-            altitude REAL,
-            velocity REAL
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            altitude REAL NOT NULL,
+            velocity REAL NOT NULL,
+            timestamp TEXT NOT NULL,
+            visibility TEXT,
+            footprint REAL,
+            daynum REAL,
+            solar_lat REAL,
+            solar_lon REAL,
+            units TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON telemetry(timestamp)')
+    
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON iss_telemetry(timestamp)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_altitude ON iss_telemetry(altitude)')
+    
     conn.commit()
     conn.close()
-    print("✅ Database initialized.")
 
-def insert_telemetry(data):
-    """Insert a new ISS telemetry record."""
+def insert_telemetry(data: dict) -> bool:
+    """Insert a telemetry record into the database."""
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        ts_utc = datetime.utcfromtimestamp(data['timestamp']).isoformat()
         cursor.execute('''
-            INSERT INTO telemetry (timestamp, ts_utc, latitude, longitude, altitude, velocity)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (data['timestamp'], ts_utc, data['latitude'], data['longitude'], data['altitude'], data['velocity']))
+            INSERT INTO iss_telemetry (
+                latitude, longitude, altitude, velocity, timestamp,
+                visibility, footprint, daynum, solar_lat, solar_lon, units
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            data.get('latitude'),
+            data.get('longitude'),
+            data.get('altitude'),
+            data.get('velocity'),
+            datetime.fromtimestamp(data.get('timestamp')).isoformat(),
+            data.get('visibility'),
+            data.get('footprint'),
+            data.get('daynum'),
+            data.get('solar_lat'),
+            data.get('solar_lon'),
+            data.get('units')
+        ))
         conn.commit()
         conn.close()
         return True
     except Exception as e:
-        print(f"❌ Error inserting data: {e}")
+        print("Error inserting telemetry:", e)
         return False
 
-def get_last_3days():
-    """Return all telemetry from last 3 days."""
+def get_last_n_days(n_days=3):
+    """Return all telemetry records from the last N days."""
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        three_days_ago = int(datetime.utcnow().timestamp()) - 3*24*3600
         cursor.execute('''
-            SELECT * FROM telemetry WHERE timestamp >= ? ORDER BY timestamp ASC
-        ''', (three_days_ago,))
+            SELECT * FROM iss_telemetry
+            WHERE timestamp >= datetime('now', ?)
+            ORDER BY timestamp ASC
+        ''', (f'-{n_days} days',))
         rows = cursor.fetchall()
         conn.close()
-        # Convert rows to dict list
-        return [
-            {
-                "id": r[0],
-                "timestamp": r[1],
-                "ts_utc": r[2],
-                "latitude": r[3],
-                "longitude": r[4],
-                "altitude": r[5],
-                "velocity": r[6]
-            } for r in rows
-        ]
+        data = []
+        for r in rows:
+            data.append({
+                'id': r[0],
+                'latitude': r[1],
+                'longitude': r[2],
+                'altitude': r[3],
+                'velocity': r[4],
+                'ts_utc': r[5]
+            })
+        return data
     except Exception as e:
-        print(f"❌ Error fetching last 3 days: {e}")
+        print("Error fetching last n days:", e)
         return []
