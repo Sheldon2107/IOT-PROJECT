@@ -1,19 +1,15 @@
-from flask import Flask, jsonify, send_from_directory
-from db import fetch_last_days
-from pathlib import Path
+from flask import Flask, jsonify
+from db import init_db, fetch_last_n_positions
 
-app = Flask(__name__, static_folder="static")
+app = Flask(__name__)
 
-# Serve index.html
-@app.route("/")
-def index():
-    return send_from_directory("static", "index.html")
+init_db()
 
-# API endpoint to fetch last 3 days of ISS telemetry
 @app.route("/api/last3days")
-def last_3_days():
-    data = fetch_last_days(days=3)
+def last3days():
+    # Fetch last 4320 records (~3 days at 1 record per minute)
+    data = fetch_last_n_positions(4320)
     return jsonify(data)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
