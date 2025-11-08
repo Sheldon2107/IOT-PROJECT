@@ -1,25 +1,26 @@
 import requests
 import time
-from datetime import datetime
 from db import insert_position
 
-ISS_API = "https://api.wheretheiss.at/v1/satellites/25544"
+API_URL = "https://api.wheretheiss.at/v1/satellites/25544"
 
-def fetch_iss_position():
-    try:
-        res = requests.get(ISS_API, timeout=10)
-        res.raise_for_status()
-        data = res.json()
-        ts_utc = datetime.utcfromtimestamp(data["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
-        latitude = data["latitude"]
-        longitude = data["longitude"]
-        altitude = data["altitude"]
-        insert_position(ts_utc, latitude, longitude, altitude)
-        print(f"[{ts_utc}] Saved ISS position: lat={latitude}, lon={longitude}, alt={altitude}")
-    except Exception as e:
-        print("Error fetching ISS data:", e)
+def fetch_and_store():
+    while True:
+        try:
+            res = requests.get(API_URL, timeout=10)
+            if res.status_code == 200:
+                data = res.json()
+                lat = data["latitude"]
+                lon = data["longitude"]
+                alt = data["altitude"]
+                ts_utc = data["timestamp"]
+                insert_position(lat, lon, alt, ts_utc)
+                print(f"Saved: Lat {lat}, Lon {lon}, Alt {alt}")
+            else:
+                print(f"Error fetching ISS data: {res.status_code}")
+        except Exception as e:
+            print("Error:", e)
+        time.sleep(60)  # Fetch every 1 minute
 
 if __name__ == "__main__":
-    while True:
-        fetch_iss_position()
-        time.sleep(60)  # Wait 60 seconds before next fetch
+    fetch_and_store()
