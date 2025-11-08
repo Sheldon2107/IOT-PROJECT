@@ -1,10 +1,10 @@
 import sqlite3
-from datetime import datetime, timedelta
+from pathlib import Path
 
-DB_NAME = 'iss_data.db'
+DB_PATH = Path("iss_data.db")
 
-def create_table():
-    conn = sqlite3.connect(DB_NAME)
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''
         CREATE TABLE IF NOT EXISTS iss_telemetry (
@@ -14,46 +14,45 @@ def create_table():
             altitude REAL,
             velocity REAL,
             timestamp INTEGER,
-            ts_utc TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            ts_utc TEXT
         )
     ''')
     conn.commit()
     conn.close()
 
-def insert_data(lat, lon, alt, vel, ts, ts_utc):
-    conn = sqlite3.connect(DB_NAME)
+def insert_data(latitude, longitude, altitude, velocity, timestamp, ts_utc):
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''
         INSERT INTO iss_telemetry (latitude, longitude, altitude, velocity, timestamp, ts_utc)
         VALUES (?, ?, ?, ?, ?, ?)
-    ''', (lat, lon, alt, vel, ts, ts_utc))
+    ''', (latitude, longitude, altitude, velocity, timestamp, ts_utc))
     conn.commit()
     conn.close()
 
-def get_last_3_days():
-    conn = sqlite3.connect(DB_NAME)
+def fetch_last_days(days=3):
+    from datetime import datetime, timedelta
+    cutoff = int((datetime.utcnow() - timedelta(days=days)).timestamp())
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    three_days_ago = datetime.utcnow() - timedelta(days=3)
     c.execute('''
-        SELECT latitude, longitude, altitude, velocity, timestamp, ts_utc 
+        SELECT latitude, longitude, altitude, velocity, timestamp, ts_utc
         FROM iss_telemetry
-        WHERE created_at >= ?
+        WHERE timestamp >= ?
         ORDER BY timestamp ASC
-    ''', (three_days_ago.isoformat(),))
+    ''', (cutoff,))
     rows = c.fetchall()
     conn.close()
-    data = []
-    for row in rows:
-        data.append({
-            'latitude': row[0],
-            'longitude': row[1],
-            'altitude': row[2],
-            'velocity': row[3],
-            'timestamp': row[4],
-            'ts_utc': row[5]
-        })
-    return data
+    return [
+        {
+            "latitude": row[0],
+            "longitude": row[1],
+            "altitude": row[2],
+            "velocity": row[3],
+            "timestamp": row[4],
+            "ts_utc": row[5]
+        } for row in rows
+    ]
 
-# Initialize table on module load
-create_table()
+# Initialize DB automatically
+init_db()
