@@ -1,34 +1,475 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>ISS Tracker</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <style>html, body, #map {height:100%; margin:0;}</style>
+<meta charset="utf-8">
+<title>ISS Tracker Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Space Grotesk', sans-serif;
+  background: #0a0e27;
+  color: #e8eaf6;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  width: 200%;
+  height: 200%;
+  top: -50%;
+  left: -50%;
+  z-index: -1;
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3), transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(33, 150, 243, 0.3), transparent 50%),
+    radial-gradient(circle at 40% 20%, rgba(156, 39, 176, 0.2), transparent 50%);
+  animation: drift 20s ease-in-out infinite;
+}
+
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(30px, -30px) rotate(5deg); }
+  66% { transform: translate(-20px, 20px) rotate(-5deg); }
+}
+
+.main-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  background: rgba(10, 14, 39, 0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 20px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 1000;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+}
+
+.logo-text h1 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.logo-text p {
+  font-size: 12px;
+  color: rgba(232, 234, 246, 0.5);
+  font-weight: 400;
+}
+
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+  animation: blink 2s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.content-wrapper {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  overflow: hidden;
+}
+
+.map-container {
+  position: relative;
+  background: #000;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+}
+
+.analytics-sidebar {
+  background: rgba(10, 14, 39, 0.6);
+  backdrop-filter: blur(20px);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-y: auto;
+  padding: 30px;
+}
+
+.analytics-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.analytics-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.analytics-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.3);
+  border-radius: 3px;
+}
+
+.section {
+  margin-bottom: 40px;
+}
+
+.section-header {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: rgba(232, 234, 246, 0.5);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-header::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(102, 126, 234, 0.3), transparent);
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.metric-box {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 16px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.metric-box::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(102, 126, 234, 0.1) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.metric-box:hover::before {
+  opacity: 1;
+}
+
+.metric-box:hover {
+  transform: translateY(-4px);
+  border-color: rgba(102, 126, 234, 0.5);
+  box-shadow: 0 12px 40px rgba(102, 126, 234, 0.2);
+}
+
+.metric-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(232, 234, 246, 0.6);
+  margin-bottom: 10px;
+}
+
+.metric-value {
+  font-size: 32px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+.metric-unit {
+  font-size: 16px;
+  color: rgba(232, 234, 246, 0.4);
+  font-weight: 500;
+}
+
+.data-table {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+}
+
+th {
+  padding: 14px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(232, 234, 246, 0.7);
+  text-align: left;
+}
+
+td {
+  padding: 14px 12px;
+  font-size: 13px;
+  color: rgba(232, 234, 246, 0.8);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-weight: 500;
+}
+
+tbody tr {
+  transition: background 0.2s ease;
+}
+
+tbody tr:hover {
+  background: rgba(102, 126, 234, 0.08);
+}
+
+.delta-badge {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  color: #10b981;
+  display: inline-block;
+  font-size: 12px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: rgba(232, 234, 246, 0.4);
+  font-size: 14px;
+}
+
+@media (max-width: 1200px) {
+  .content-wrapper {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+  }
+  
+  .analytics-sidebar {
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    max-height: 40vh;
+  }
+}
+</style>
 </head>
 <body>
-<div id="map"></div>
+<div class="main-container">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🛰️</div>
+      <div class="logo-text">
+        <h1>ISS Mission Control</h1>
+        <p>Real-time Orbital Tracking System</p>
+      </div>
+    </div>
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      Live Tracking
+    </div>
+  </header>
+  
+  <div class="content-wrapper">
+    <div class="map-container">
+      <div id="map"></div>
+    </div>
+    
+    <div class="analytics-sidebar">
+      <div class="section">
+        <div class="section-header">Orbital Metrics</div>
+        <div class="metrics-grid">
+          <div class="metric-box">
+            <div class="metric-label">Min Longitude</div>
+            <div class="metric-value">
+              <span id="min_lon">--</span><span class="metric-unit">°</span>
+            </div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Max Longitude</div>
+            <div class="metric-value">
+              <span id="max_lon">--</span><span class="metric-unit">°</span>
+            </div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Min Altitude</div>
+            <div class="metric-value">
+              <span id="min_alt">--</span><span class="metric-unit">km</span>
+            </div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Max Altitude</div>
+            <div class="metric-value">
+              <span id="max_alt">--</span><span class="metric-unit">km</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <div class="section-header">Altitude Analysis</div>
+        <div class="data-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Time 1</th>
+                <th>Alt 1</th>
+                <th>Time 2</th>
+                <th>Alt 2</th>
+                <th>Delta</th>
+              </tr>
+            </thead>
+            <tbody id="jumps">
+              <tr>
+                <td colspan="5" class="empty-state">Analyzing orbital data...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-let map = L.map('map').setView([0,0],2);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-let marker = null;
-let poly = L.polyline([], {color:'red'}).addTo(map);
+let map = L.map('map', {
+  zoomControl: true,
+  attributionControl: false
+}).setView([0,0],2);
 
-async function updateMap(){
-  const res = await fetch('/api/data');
-  const data = await res.json();
-  poly.setLatLngs(data.map(p=>[p.latitude,p.longitude]));
-  if(data.length){
-    const last = data[data.length-1];
-    if(!marker) marker = L.marker([last.latitude,last.longitude]).addTo(map);
-    else marker.setLatLng([last.latitude,last.longitude]);
-    map.panTo([last.latitude,last.longitude], {animate:true, duration:0.5});
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 19
+}).addTo(map);
+
+let marker = null;
+let poly = L.polyline([], {
+  color: '#667eea',
+  weight: 2.5,
+  opacity: 0.9,
+  smoothFactor: 1
+}).addTo(map);
+
+async function updateMapAndAnalytics(){
+  try {
+    const [dataRes, analyticsRes] = await Promise.all([
+      fetch('/api/data'),
+      fetch('/api/analytics')
+    ]);
+    const data = await dataRes.json();
+    const analytics = await analyticsRes.json();
+    
+    poly.setLatLngs(data.map(p=>[p.latitude,p.longitude]));
+    
+    if(data.length){
+      const last = data[data.length-1];
+      if(!marker) {
+        const icon = L.divIcon({
+          html: `<div style="position:relative;width:20px;height:20px;">
+                  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;background:#667eea;border-radius:50%;opacity:0.3;animation:pulse-ring 2s infinite;"></div>
+                  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:12px;height:12px;background:#667eea;border:2px solid white;border-radius:50%;box-shadow:0 0 20px rgba(102,126,234,1);"></div>
+                </div>
+                <style>@keyframes pulse-ring{0%{transform:translate(-50%,-50%) scale(1);opacity:0.3;}100%{transform:translate(-50%,-50%) scale(2);opacity:0;}}</style>`,
+          className: '',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        });
+        marker = L.marker([last.latitude,last.longitude], {icon}).addTo(map);
+      } else {
+        marker.setLatLng([last.latitude,last.longitude]);
+      }
+      map.panTo([last.latitude,last.longitude], {animate:true, duration:0.5});
+    }
+    
+    document.getElementById('min_lon').innerText = analytics.summary.min_lon.toFixed(2);
+    document.getElementById('max_lon').innerText = analytics.summary.max_lon.toFixed(2);
+    document.getElementById('min_alt').innerText = analytics.summary.min_alt.toFixed(2);
+    document.getElementById('max_alt').innerText = analytics.summary.max_alt.toFixed(2);
+    
+    const tbody = document.getElementById('jumps');
+    tbody.innerHTML = '';
+    if (analytics.top_jumps.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No significant altitude changes detected</td></tr>';
+    } else {
+      analytics.top_jumps.forEach(j=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${j.t1}</td>
+          <td>${j.a1.toFixed(2)} km</td>
+          <td>${j.t2}</td>
+          <td>${j.a2.toFixed(2)} km</td>
+          <td><span class="delta-badge">+${j.delta.toFixed(2)} km</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  } catch(err) {
+    console.error('Error updating data:', err);
   }
 }
 
-setInterval(updateMap, 5000);
-updateMap();
+setInterval(updateMapAndAnalytics, 5000);
+updateMapAndAnalytics();
 </script>
 </body>
 </html>
