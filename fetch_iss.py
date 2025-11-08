@@ -13,17 +13,17 @@ def fetch_and_store():
                 data = res.json()
                 latitude = data.get('latitude')
                 longitude = data.get('longitude')
-                altitude = data.get('altitude')  # in km
+                altitude = data.get('altitude')  # km
                 velocity = data.get('velocity')  # km/h
                 timestamp = data.get('timestamp')
                 ts_utc = datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
                 insert_data(latitude, longitude, altitude, velocity, timestamp, ts_utc)
-                print(f"[{ts_utc}] Stored ISS position: lat={latitude}, lon={longitude}, alt={altitude}")
+                print(f"[{ts_utc}] Stored ISS: lat={latitude}, lon={longitude}, alt={altitude}")
             else:
-                print("Error fetching ISS data:", res.status_code)
+                print("Error fetching ISS:", res.status_code)
         except Exception as e:
             print("Exception:", e)
-        time.sleep(1)  # Rate limit: 1 request per second
+        time.sleep(1)  # Respect API rate limit
 
 if __name__ == "__main__":
     fetch_and_store()
