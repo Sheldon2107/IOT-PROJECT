@@ -1,18 +1,27 @@
 from flask import Flask, jsonify, send_from_directory
-from db import init_db, fetch_last_n_positions
+import sqlite3
+from datetime import datetime, timedelta
+import os
 
-app = Flask(__name__)
-init_db()  # Create DB if not exists
+app = Flask(__name__, static_folder="static")
+DB_PATH = "iss_data.db"
 
-@app.route("/")
-def home():
-    return send_from_directory("static", "index.html")
+def get_last_3days():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    three_days_ago = int((datetime.utcnow() - timedelta(days=3)).timestamp())
+    cur.execute("SELECT latitude, longitude, altitude, ts_utc FROM iss_positions WHERE ts_utc >= ? ORDER BY ts_utc ASC", (three_days_ago,))
+    rows = cur.fetchall()
+    conn.close()
+    return [{"latitude": r[0], "longitude": r[1], "altitude": r[2], "ts_utc": datetime.utcfromtimestamp(r[3]).strftime("%Y-%m-%d %H:%M:%S")} for r in rows]
 
 @app.route("/api/last3days")
-def last3days():
-    # Fetch last 4320 entries (~1 per minute for 3 days)
-    data = fetch_last_n_positions(4320)
-    return jsonify(data)
+def last_3days():
+    return jsonify(get_last_3days())
+
+@app.route("/")
+def index():
+    return send_from_directory(app.static_folder, "index.html")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(debug=True)
