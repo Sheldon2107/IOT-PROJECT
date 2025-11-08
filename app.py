@@ -13,7 +13,12 @@ def get_last_3days():
     cur.execute("SELECT latitude, longitude, altitude, ts_utc FROM iss_positions WHERE ts_utc >= ? ORDER BY ts_utc ASC", (three_days_ago,))
     rows = cur.fetchall()
     conn.close()
-    return [{"latitude": r[0], "longitude": r[1], "altitude": r[2], "ts_utc": datetime.utcfromtimestamp(r[3]).strftime("%Y-%m-%d %H:%M:%S")} for r in rows]
+    return [{
+        "latitude": r[0],
+        "longitude": r[1],
+        "altitude": r[2],
+        "ts_utc": datetime.utcfromtimestamp(r[3]).strftime("%Y-%m-%d %H:%M:%S")
+    } for r in rows]
 
 @app.route("/api/last3days")
 def last_3days():
@@ -24,4 +29,5 @@ def index():
     return send_from_directory(app.static_folder, "index.html")
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
